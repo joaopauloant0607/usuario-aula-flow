@@ -1,0 +1,17 @@
+node_modules/
+dist/
+build/
+.react-router/
+.env
+.env.*
+*.log
+.DS_Store
+
+# PocketBase: local database and binary (download the binary per README)
+apps/pocketbase/pb_data/*
+!apps/pocketbase/pb_data/types.d.ts
+apps/pocketbase/pocketbase
+apps/pocketbase/pb_snapshots/
+
+# Old Horizons backup
+app.tar.gz
