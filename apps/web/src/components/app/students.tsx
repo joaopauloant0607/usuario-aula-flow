@@ -6,6 +6,8 @@ import {
 	createStudent,
 	updateStudent,
 	deleteStudent,
+	listClasses,
+	weeklyDaysByStudent,
 	DEFAULT_DUE_DAY,
 	type Student,
 } from '@/lib/teaching';
@@ -41,10 +43,13 @@ export function Students() {
 	const [form, setForm] = useState({ ...EMPTY });
 	const [saving, setSaving] = useState(false);
 	const [err, setErr] = useState('');
+	const [scheduled, setScheduled] = useState<Record<string, number>>({});
 
 	async function load() {
 		try {
-			setItems(await listStudents());
+			const [students, classes] = await Promise.all([listStudents(), listClasses()]);
+			setItems(students);
+			setScheduled(weeklyDaysByStudent(classes));
 			setState('ready');
 		} catch {
 			setState('error');
@@ -159,6 +164,11 @@ export function Students() {
 											</div>
 										)}
 										{s.notes && <div className="meta">{s.notes}</div>}
+										<div className="meta">
+											Na agenda: {scheduled[s.id] || 0}
+											{s.classes_per_week > 0 ? ` de ${s.classes_per_week}` : ''} aula
+											{(s.classes_per_week || scheduled[s.id] || 0) === 1 ? '' : 's'} por semana
+										</div>
 									</div>
 									<span
 										className={

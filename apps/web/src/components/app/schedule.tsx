@@ -31,6 +31,8 @@ import {
 	fmtDay,
 	whatsappLink,
 	currentUserId,
+	weeklyDaysByStudent,
+	roundDuration,
 	type ClassItem,
 	type ClassSession,
 	type Student,
@@ -39,7 +41,7 @@ import {
 const EMPTY = {
 	student: '',
 	subject: '',
-	weekday: ['1'] as string[],
+	weekday: [] as string[],
 	start_time: '09:00',
 	duration_minutes: 60,
 	location: '',
@@ -56,10 +58,12 @@ export function Schedule() {
 	const [form, setForm] = useState({ ...EMPTY });
 	const [saving, setSaving] = useState(false);
 	const [err, setErr] = useState('');
+	const [version, setVersion] = useState(0);
 
 	async function load() {
 		try {
 			const [c, s] = await Promise.all([listClasses(), listStudents()]);
+			setVersion((v) => v + 1);
 			setItems(c);
 			setStudents(s);
 			setState('ready');
@@ -96,12 +100,17 @@ export function Schedule() {
 		setErr('');
 	}
 
+	// Weekly limit from the student's record (0 = not informed, no limit)
+	const student = students.find((s) => s.id === form.student);
+	const perWeek = student?.classes_per_week || 0;
+	const usedElsewhere = form.student ? weeklyDaysByStudent(items, editing?.id)[form.student] || 0 : 0;
+	const allowed = perWeek ? Math.max(0, perWeek - usedElsewhere) : 7;
+
 	function toggleDay(day: string) {
 		setForm((prev) => {
-			const days = prev.weekday.includes(day)
-				? prev.weekday.filter((d) => d !== day)
-				: [...prev.weekday, day];
-			return { ...prev, weekday: days };
+			if (prev.weekday.includes(day)) return { ...prev, weekday: prev.weekday.filter((d) => d !== day) };
+			if (prev.weekday.length >= allowed) return prev;
+			return { ...prev, weekday: [...prev.weekday, day] };
 		});
 	}
 
@@ -115,10 +124,16 @@ export function Schedule() {
 			setErr('Selecione ao menos um dia da semana.');
 			return;
 		}
+		if (form.weekday.length > allowed) {
+			setErr(
+				`${student?.name} tem ${perWeek} aula${perWeek > 1 ? 's' : ''} por semana. Desmarque ${form.weekday.length - allowed} dia${form.weekday.length - allowed > 1 ? 's' : ''} ou altere o cadastro do aluno.`,
+			);
+			return;
+		}
 		setSaving(true);
 		setErr('');
 		try {
-			const data = { ...form, duration_minutes: Number(form.duration_minutes) || 60 };
+			const data = { ...form, duration_minutes: roundDuration(Number(form.duration_minutes)) };
 			if (editing) await updateClass(editing.id, data);
 			else await createClass(user!.id, data);
 			setShowForm(false);
@@ -131,7 +146,7 @@ export function Schedule() {
 	}
 
 	async function remove(id: string) {
-		if (!confirm('Remover esta aula da agenda?')) return;
+		if (!confirm('Remover esta aula da agenda? Ela sai de todas as semanas.')) return;
 		try {
 			await deleteClass(id);
 			await load();
@@ -140,69 +155,13 @@ export function Schedule() {
 		}
 	}
 
-	const grouped = WEEKDAYS.map((name, idx) => ({
-		name,
-		items: items
-			.filter((c) => c.weekday.includes(String(idx)))
-			.sort((a, b) => a.start_time.localeCompare(b.start_time)),
-	})).filter((g) => g.items.length > 0);
-
-	const emptyState = (
-		<div className="panel">
-			<p className="empty">Sua agenda está vazia. Adicione sua primeira aula para começar.</p>
-		</div>
-	);
-
-	const weekPanels = grouped.map((g) => (
-		<div className="panel" key={g.name}>
-			<div className="panel-head">
-				<h2>{g.name}</h2>
-				<span className="meta">
-					{g.items.length} aula{g.items.length > 1 ? 's' : ''}
-				</span>
-			</div>
-			<div className="panel-body">
-				{g.items.map((c) => (
-					<div className="row" key={c.id}>
-						<span className="lesson-time">{c.start_time}</span>
-						<div className="grow">
-							<div className="name">{c.subject || c.expand?.student?.name || 'Aula'}</div>
-							<div className="meta">
-								{c.expand?.student?.name}
-								{c.duration_minutes ? ` · ${c.duration_minutes} min` : ''}
-								{c.location ? ` · ${c.location}` : ''}
-								{c.notes ? ` · ${c.notes}` : ''}
-							</div>
-						</div>
-						<button
-							type="button"
-							className="icon-btn"
-							onClick={() => openEdit(c)}
-							aria-label="Editar aula"
-						>
-							<Pencil size={15} />
-						</button>
-						<button
-							type="button"
-							className="icon-btn"
-							onClick={() => remove(c.id)}
-							aria-label="Excluir aula"
-						>
-							<Trash2 size={15} />
-						</button>
-					</div>
-				))}
-			</div>
-		</div>
-	));
-
 	return (
 		<>
 			<div className="dash-head">
 				<div>
 					<span className="eyebrow">AGENDA</span>
 					<h1>Sua semana</h1>
-					<p>Organize horários e acompanhe suas aulas.</p>
+					<p>Organize horários e confirme a presença. Aula não confirmada fica para repor.</p>
 				</div>
 				<button type="button" className="button small" onClick={openNew}>
 					<Plus size={15} /> Nova aula
@@ -213,7 +172,14 @@ export function Schedule() {
 			{state === 'error' && (
 				<p className="notice">Não foi possível carregar sua agenda. Tente novamente.</p>
 			)}
-			{state === 'ready' && (items.length === 0 ? emptyState : weekPanels)}
+			{state === 'ready' &&
+				(items.length === 0 ? (
+					<div className="panel">
+						<p className="empty">Sua agenda está vazia. Adicione sua primeira aula para começar.</p>
+					</div>
+				) : (
+					<Attendance version={version} onEdit={openEdit} onRemove={(c) => remove(c.id)} />
+				))}
 
 			{showForm && (
 				<div className="modal-overlay" onClick={() => setShowForm(false)}>
@@ -269,10 +235,14 @@ export function Schedule() {
 								<input
 									type="number"
 									min={15}
-									step={15}
+									max={480}
+									step={5}
 									value={form.duration_minutes}
 									onChange={(e) =>
 										setForm({ ...form, duration_minutes: Number(e.target.value) })
+									}
+									onBlur={() =>
+										setForm({ ...form, duration_minutes: roundDuration(Number(form.duration_minutes)) })
 									}
 								/>
 							</div>
@@ -281,12 +251,15 @@ export function Schedule() {
 								<div className="day-toggle">
 									{WEEKDAYS.map((d, i) => {
 										const on = form.weekday.includes(String(i));
+										const blocked = !on && form.weekday.length >= allowed;
 										return (
 											<button
 												type="button"
 												key={i}
 												className={'day-chip' + (on ? ' on' : '')}
 												onClick={() => toggleDay(String(i))}
+												disabled={blocked}
+												style={blocked ? { opacity: 0.35, cursor: 'not-allowed' } : undefined}
 												aria-pressed={on}
 												title={d}
 											>
@@ -295,6 +268,17 @@ export function Schedule() {
 										);
 									})}
 								</div>
+								{student && (
+									<small className="meta" style={{ display: 'block', marginTop: 8, fontSize: 12, color: 'var(--quiet)' }}>
+										{perWeek && allowed === 0 && form.weekday.length === 0
+											? `As ${perWeek} aula${perWeek > 1 ? 's' : ''} por semana de ${student.name} já estão na agenda. Edite a outra aula ou altere o cadastro do aluno.`
+											: perWeek
+											? `${student.name} tem ${perWeek} aula${perWeek > 1 ? 's' : ''} por semana` +
+												(usedElsewhere ? ` (${usedElsewhere} já na agenda em outra aula)` : '') +
+												`: ${form.weekday.length} de ${allowed} dia${allowed === 1 ? '' : 's'} marcado${allowed === 1 ? '' : 's'}.`
+											: 'Informe as aulas por semana no cadastro do aluno para limitar os dias.'}
+									</small>
+								)}
 							</div>
 							<div className="field full">
 								<label>Local da aula</label>
@@ -359,11 +343,11 @@ function occurrencesOfWeek(classes: ClassItem[], monday: Date, sessions: ClassSe
 		for (const c of classes) {
 			const days = Array.isArray(c.weekday) ? c.weekday : [c.weekday];
 			if (!days.includes(String(day.getDay()))) continue;
-			// Ignore dates before the class was added to the schedule
-			if (c.created && date < c.created.slice(0, 10)) continue;
 			const [h, m] = (c.start_time || '00:00').split(':').map(Number);
 			const ends = new Date(day.getFullYear(), day.getMonth(), day.getDate(), h, m);
 			ends.setMinutes(ends.getMinutes() + (c.duration_minutes || 60));
+			// Ignore occurrences that ended before the class was added to the schedule
+			if (c.created && ends < new Date(c.created.replace(' ', 'T'))) continue;
 			out.push({
 				cls: c,
 				date,
@@ -445,7 +429,15 @@ function WaButton({ link, title }: { link: string | null; title: string }) {
 	);
 }
 
-export function Attendance() {
+function Attendance({
+	version,
+	onEdit,
+	onRemove,
+}: {
+	version: number;
+	onEdit: (c: ClassItem) => void;
+	onRemove: (c: ClassItem) => void;
+}) {
 	const { user } = useAuth();
 	const [classes, setClasses] = useState<ClassItem[]>([]);
 	const [sessions, setSessions] = useState<ClassSession[]>([]);
@@ -489,7 +481,7 @@ export function Attendance() {
 	useEffect(() => {
 		void load();
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [offset]);
+	}, [offset, version]);
 
 	async function run(key: string, fn: () => Promise<unknown>) {
 		setBusy(key);
@@ -544,18 +536,20 @@ export function Attendance() {
 		.map((date) => ({ date, items: occ.filter((o) => o.date === date) }))
 		.filter((d) => d.items.length > 0);
 	const confirmedCount = occ.filter((o) => o.session?.status === 'confirmed').length;
+	// Classes per student this week, compared with the weekly amount in the student's record
+	const perStudent = Object.values(
+		occ.reduce<Record<string, { student?: Student; total: number; confirmed: number }>>((acc, o) => {
+			const id = o.cls.student;
+			acc[id] ||= { student: o.cls.expand?.student, total: 0, confirmed: 0 };
+			acc[id].total++;
+			if (o.session?.status === 'confirmed') acc[id].confirmed++;
+			return acc;
+		}, {}),
+	).sort((a, b) => (a.student?.name || '').localeCompare(b.student?.name || ''));
 	const waitingCount = occ.filter((o) => !o.session && o.ends >= now).length;
 
 	return (
 		<>
-			<div className="dash-head">
-				<div>
-					<span className="eyebrow">PRESENÇA</span>
-					<h1>Confirmação de aulas</h1>
-					<p>Confirme as aulas da semana. Aula não confirmada fica para repor.</p>
-				</div>
-			</div>
-
 			<div className="metric-grid">
 				<div className="metric-card">
 					<div className="label">Confirmadas na semana</div>
@@ -573,6 +567,40 @@ export function Attendance() {
 					</div>
 				</div>
 			</div>
+
+			{perStudent.length > 0 && (
+				<div className="panel">
+					<div className="panel-head">
+						<h2>Aulas por aluno nesta semana</h2>
+						<span className="meta">
+							{perStudent.length} aluno{perStudent.length > 1 ? 's' : ''}
+						</span>
+					</div>
+					<div className="panel-body">
+						{perStudent.map(({ student, total, confirmed }) => {
+							const plan = student?.classes_per_week || 0;
+							const over = plan > 0 && total > plan;
+							return (
+								<div className="row" key={student?.id || total}>
+									<div className="grow">
+										<div className="name">{student?.name || 'Aluno'}</div>
+										<div className="meta">
+											{confirmed} confirmada{confirmed === 1 ? '' : 's'}
+											{plan ? ` · plano de ${plan}x por semana` : ' · aulas por semana não informadas'}
+										</div>
+									</div>
+									<span
+										className={'badge ' + (over ? 'pending' : plan && total === plan ? 'active' : 'inactive')}
+										title={over ? 'Mais aulas na agenda do que o plano do aluno' : undefined}
+									>
+										{plan ? `${total} de ${plan}` : `${total} aula${total > 1 ? 's' : ''}`}
+									</span>
+								</div>
+							);
+						})}
+					</div>
+				</div>
+			)}
 
 			{pending.length > 0 && (
 				<div className="panel">
@@ -657,7 +685,7 @@ export function Attendance() {
 
 			{days.length === 0 && (
 				<div className="panel">
-					<p className="empty">Nenhuma aula nesta semana. Cadastre aulas na Agenda.</p>
+					<p className="empty">Nenhuma aula nesta semana.</p>
 				</div>
 			)}
 
@@ -732,6 +760,24 @@ export function Attendance() {
 											<Undo2 size={15} />
 										</button>
 									)}
+									<button
+										type="button"
+										className="icon-btn"
+										onClick={() => onEdit(o.cls)}
+										title="Editar aula"
+										aria-label="Editar aula"
+									>
+										<Pencil size={15} />
+									</button>
+									<button
+										type="button"
+										className="icon-btn"
+										onClick={() => onRemove(o.cls)}
+										title="Excluir aula da agenda"
+										aria-label="Excluir aula da agenda"
+									>
+										<Trash2 size={15} />
+									</button>
 								</div>
 							);
 						})}

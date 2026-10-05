@@ -90,6 +90,20 @@ export async function deleteClass(id: string) {
 	return pb.collection('classes').delete(id);
 }
 
+/** Weekly class days per student, counting every scheduled class (optionally skipping one). */
+export function weeklyDaysByStudent(classes: ClassItem[], skipClassId?: string) {
+	const out: Record<string, number> = {};
+	for (const c of classes) {
+		if (c.id === skipClassId) continue;
+		const days = Array.isArray(c.weekday) ? c.weekday : [c.weekday];
+		out[c.student] = (out[c.student] || 0) + days.length;
+	}
+	return out;
+}
+
+/** Rounds a lesson length to the nearest 5 minutes, between 15 minutes and 8 hours. */
+export const roundDuration = (n: number) => Math.min(480, Math.max(15, Math.round((n || 60) / 5) * 5));
+
 // ---- payments ----
 export async function listPayments() {
 	return pb
