@@ -11,7 +11,11 @@ build/
 apps/pocketbase/pb_data/*
 !apps/pocketbase/pb_data/types.d.ts
 apps/pocketbase/pocketbase
+apps/pocketbase/pocketbase.exe
 apps/pocketbase/pb_snapshots/
 
 # Old Horizons backup
 app.tar.gz
+
+# Horizons dev session journal
+vault/

@@ -45,6 +45,13 @@ export default defineConfig({
 			'Cross-Origin-Embedder-Policy': 'credentialless',
 		},
 		allowedHosts: ['.app-preview.com', '.app-preview.io'],
+		// On Horizons the platform routes /hcgi/platform to PocketBase; locally Vite does it.
+		proxy: {
+			'/hcgi/platform': {
+				target: 'http://127.0.0.1:8090',
+				rewrite: (p) => p.replace(/^\/hcgi\/platform/, ''),
+			},
+		},
 		fs: {
 			strict: true,
 			allow: [__dirname, path.join(monorepoRoot, 'node_modules')],

@@ -4,7 +4,7 @@
 	"version": "0.0.0",
 	"private": true,
 	"scripts": {
-		"dev": "node --conditions=development --env-file-if-exists=.env \"$(command -v react-router)\" dev --host :: --port 3000",
+		"dev": "node --conditions=development --env-file-if-exists=.env ../../node_modules/@react-router/dev/bin.cjs dev --host localhost --port 3000",
 		"build": "react-router build",
 		"start": "PORT=3000 node --env-file-if-exists=.env \"$(command -v react-router-serve)\" ../../dist/apps/web/server/index.js",
 		"lint": "eslint . --quiet; lint_status=$?; eslint \"src/**/*.tsx\" --config eslint.config.mjs --format ./eslint.unicode-escapes-formatter.mjs --no-error-on-unmatched-pattern; exit $lint_status",
