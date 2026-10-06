@@ -83,3 +83,14 @@
 .input-with-icon:focus-within{border-color:var(--signal);box-shadow:0 0 0 3px #df493520}
 @media(max-width:900px){.dash{padding:20px 24px 50px}.dash-side{width:160px;padding:18px 12px}.dash-main{margin-left:16px}.metric-grid{grid-template-columns:1fr 1fr}}
 @media(max-width:600px){.dash{flex-direction:column;padding:18px}.dash-side{width:100%;position:static;display:flex;flex-wrap:wrap;gap:6px;align-items:center}.dash-side>small,.sidebar-bottom{display:none}.side-item{flex:1;justify-content:center;padding:10px 8px;font-size:11px}.dash-main{margin-left:0;margin-top:16px}.dash-head{flex-direction:column;align-items:stretch}.dash-head h1{font-size:30px}.metric-grid{grid-template-columns:1fr}.form-grid{grid-template-columns:1fr}.row{flex-wrap:wrap}.row b{order:3}}
+/* Hero: real app screens alternating */
+.demo-frame{position:relative;aspect-ratio:16/9;background:#f8f7f4;border:1px solid #dad8d3;border-radius:7px;overflow:hidden;box-shadow:0 8px 24px #2223210a;transform:rotate(-.5deg)}
+.demo-frame img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:top left;opacity:0;transition:opacity .8s ease}
+.demo-frame img.on{opacity:1}
+.demo-label{position:absolute;bottom:10px;left:12px;font-size:8px;font-weight:700;letter-spacing:1px;color:var(--quiet);background:#ffffffd9;border:1px solid var(--line);padding:4px 8px;border-radius:20px}
+.demo-tabs{display:flex;justify-content:center;flex-wrap:wrap;gap:6px;margin-top:14px}
+.demo-tabs button{border:1px solid #dad8d3;background:#f8f7f4;color:var(--quiet);font-size:11px;font-weight:700;padding:6px 12px;border-radius:20px;transition:background .2s,color .2s,border-color .2s}
+.demo-tabs button:hover{color:var(--ink)}
+.demo-tabs button.on{background:var(--ink);border-color:var(--ink);color:white}
+@media(prefers-reduced-motion:reduce){.demo-frame img{transition:none}}
+@media(max-width:600px){.demo-frame{transform:none}.demo-label{font-size:5px;letter-spacing:.5px;bottom:5px;left:5px;padding:2px 5px}.product-stage .floating-note{display:none}.demo-tabs{gap:4px;margin-top:10px}.demo-tabs button{font-size:9px;padding:5px 9px}}

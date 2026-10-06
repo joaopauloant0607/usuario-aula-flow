@@ -101,7 +101,7 @@ export function Overview({ onNavigate }: { onNavigate: (t: Tab) => void }) {
 					<div className="label">
 						Aulas por semana <CalendarDays size={14} />
 					</div>
-					<div className="value">{classes.length}</div>
+					<div className="value">{classes.reduce((n, c) => n + c.weekday.length, 0)}</div>
 					<div className="sub">{todayClasses.length} hoje</div>
 				</div>
 				<div className="metric-card">
