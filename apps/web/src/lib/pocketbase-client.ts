@@ -1,6 +1,8 @@
 import PocketBase from 'pocketbase';
 
-const POCKETBASE_API_URL = '/hcgi/platform';
+// Horizons routes /hcgi/platform to PocketBase (locally, the Vite proxy does).
+// Other hosts set VITE_POCKETBASE_URL to the database address at build time.
+const POCKETBASE_API_URL: string = import.meta.env.VITE_POCKETBASE_URL || '/hcgi/platform';
 
 const pocketbaseClient = new PocketBase(POCKETBASE_API_URL);
 
