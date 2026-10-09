@@ -2,7 +2,7 @@
  * POST /api/ecommerce/subscriptions — the signed-in visitor's subscriptions.
  *
  * Call it from the browser through `getUserSubscriptions()` in
- * `@/api/ecommerce-subscriptions-api`, which attaches the PocketBase token.
+ * `@/api/ecommerce-subscriptions-api`; the session cookie identifies the visitor.
  * Register this route in `src/routes.ts` or it answers 404.
  *
  * POST, not GET, even though it only reads: published sites edge-cache GET

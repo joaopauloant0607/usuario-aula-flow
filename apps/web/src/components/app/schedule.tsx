@@ -361,7 +361,7 @@ function occurrencesOfWeek(classes: ClassItem[], monday: Date, sessions: ClassSe
 	);
 }
 
-/** Short, readable reason from a PocketBase error, to help diagnose setup problems. */
+/** Short, readable reason from an API error, to help diagnose setup problems. */
 function describeError(e: unknown) {
 	const err = e as { status?: number; message?: string; response?: { message?: string; data?: Record<string, { message?: string }> } };
 	const fields = Object.entries(err?.response?.data || {})
@@ -516,8 +516,7 @@ function Attendance({
 	if (state === 'error')
 		return (
 			<p className="notice">
-				Não foi possível carregar as confirmações. Se for o primeiro uso, confira se a coleção
-				class_sessions foi criada.
+				Não foi possível carregar as confirmações. Atualize a página para tentar de novo.
 				{errDetail && (
 					<>
 						<br />

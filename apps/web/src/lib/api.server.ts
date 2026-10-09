@@ -81,14 +81,14 @@ const serverError = (error: unknown): Response => {
 	);
 };
 
-const runHandler = async (handler: ApiHandler, args: ApiArgs): Promise<Response> => {
-	const verdict = await consumeRateLimit(clientIdentifier(args.request));
+const runHandler = async (handler: ApiHandler, args: ApiArgs, rateLimit: boolean): Promise<Response> => {
+	const verdict = rateLimit ? await consumeRateLimit(clientIdentifier(args.request)) : null;
 
-	if (verdict.isLimited) {
+	if (verdict?.isLimited) {
 		return withExtraHeaders(apiError(429, 'Too many requests, please try again later'), rateLimitHeaders(verdict));
 	}
 
-	const extraHeaders = rateLimitHeaders(verdict);
+	const extraHeaders = verdict ? rateLimitHeaders(verdict) : {};
 
 	try {
 		const result = await handler(args);
@@ -112,11 +112,17 @@ const runHandler = async (handler: ApiHandler, args: ApiArgs): Promise<Response>
  * security headers, logs the request, and turns any thrown error into the shared
  * 500 shape — so handlers can `throw new Error(...)` instead of building error
  * responses.
+ *
+ * `rateLimit: false` skips the shared per-address budget, for signed-in
+ * endpoints that apply their own per-user limit instead.
  */
-export const withApi = (handler: ApiHandler): ((args: ApiArgs) => Promise<Response>) => {
+export const withApi = (
+	handler: ApiHandler,
+	{ rateLimit = true }: { rateLimit?: boolean } = {},
+): ((args: ApiArgs) => Promise<Response>) => {
 	return async (args: ApiArgs) => {
 		const startedAt = Date.now();
-		const response = await runHandler(handler, args);
+		const response = await runHandler(handler, args, rateLimit);
 		const { pathname } = new URL(args.request.url);
 
 		logger.info(`${args.request.method} ${pathname} ${response.status} ${Date.now() - startedAt}ms`);

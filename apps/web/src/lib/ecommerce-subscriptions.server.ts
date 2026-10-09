@@ -6,17 +6,18 @@
  * `.server.ts` suffix keeps this module out of the browser bundle. Never move
  * this logic into a component, and never send the key to the client.
  *
- * The signed-in visitor is identified by their PocketBase token, which the
- * browser sends in the `Authorization` header. `getUserSubscriptions` and
- * `createManageUserSubscriptionUrl` take the `Request` and verify that token
- * themselves, so no caller can read or manage another visitor's subscriptions.
+ * The signed-in visitor is identified by their session cookie.
+ * `getUserSubscriptions` and `createManageUserSubscriptionUrl` take the
+ * `Request` and check that session themselves, so no caller can read or
+ * manage another visitor's subscriptions.
  * Use `requireUserId` when you gate your own `/api/*` handler by tier — from an
  * `action` (POST) only, never a `loader`: GET responses are edge-cached by URL
  * for all visitors, which would serve one subscriber's paid content to everyone
- * and never re-run these guards. A page `loader` cannot use any of this either,
- * because the session lives in `localStorage` where the server cannot see it.
+ * and never re-run these guards. A page `loader` must not use any of this
+ * either, for the same reason.
  */
 import { apiError } from '@/lib/api.server';
+import { requireUser } from '@/lib/auth.server';
 
 export type EcommerceBillingInterval = 'daily' | 'weekly' | 'monthly' | 'yearly';
 
@@ -66,8 +67,6 @@ const storeHeaders = () => ({
 	...(process.env.PROXY_ENTRANCE_ID && { 'X-Proxy-Entrance-Id': process.env.PROXY_ENTRANCE_ID }),
 });
 
-const pocketbaseUrl = () => process.env.POCKETBASE_URL || 'http://localhost:8090';
-
 const requireNonEmpty = (value: unknown, fieldLabel: string): string => {
 	if (typeof value !== 'string' || value.trim() === '') {
 		throw apiError(400, `${fieldLabel} is required`);
@@ -77,38 +76,12 @@ const requireNonEmpty = (value: unknown, fieldLabel: string): string => {
 };
 
 /**
- * Verifies the caller's PocketBase token and returns their `users` record id.
- * Throws a 401 response, which `withApi` passes straight through.
+ * The signed-in caller's user id, from their session cookie. Throws a 401
+ * response, which `withApi` passes straight through.
  */
-export const requireUserId = async (request: Request): Promise<string> => {
-	const header = request.headers.get('authorization') ?? '';
-	const token = header.startsWith('Bearer ') ? header.slice('Bearer '.length).trim() : '';
+export const requireUserId = async (request: Request): Promise<string> => (await requireUser(request)).id;
 
-	if (!token) {
-		throw apiError(401, 'Unauthorized');
-	}
-
-	const response = await fetch(`${pocketbaseUrl()}/api/collections/users/auth-refresh`, {
-		method: 'POST',
-		headers: { Authorization: token },
-	}).catch(() => {
-		throw new Error('Could not reach PocketBase to verify the session — is PocketBase running?');
-	});
-
-	if (!response.ok) {
-		throw apiError(401, 'Unauthorized');
-	}
-
-	const { record } = (await response.json()) as { record?: { id?: string } };
-
-	if (!record?.id) {
-		throw apiError(401, 'Unauthorized');
-	}
-
-	return record.id;
-};
-
-/** The store customer for a PocketBase user, or null before their first checkout. */
+/** The store customer for a user, or null before their first checkout. */
 const getCustomer = async (userId: string): Promise<EcommerceCustomer | null> => {
 	const query = new URLSearchParams({ external_id: requireNonEmpty(userId, 'User ID') });
 	const response = await fetch(storeUrl(`/customers?${query.toString()}`), {

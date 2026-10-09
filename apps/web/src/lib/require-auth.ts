@@ -1,16 +1,14 @@
 import { redirect } from 'react-router';
-import pb from '@/lib/pocketbase-client';
+import { loadSession } from '@/lib/session';
 
 /**
- * Guard a protected route. The session lives in localStorage, so this belongs
- * in `clientLoader` — a server `loader` cannot see it. That is by design, not
- * a limitation: published sites edge-cache every server GET response (HTML,
- * `.data`) by URL for ALL visitors, so server-rendered output must never
- * depend on who is asking. Never move auth to cookies or a server
- * loader/middleware — the first user's page would be cached and served to
- * everyone. Put the guard on a layout route to cover a whole section at once:
+ * Guard a protected route. The session is checked from the browser, so this
+ * belongs in `clientLoader` — never in a server `loader`: the CDN in front of
+ * the site may cache server GET responses (HTML, `.data`) by URL for ALL
+ * visitors, so server-rendered output must never depend on who is asking. Put
+ * the guard on a layout route to cover a whole section at once:
  *
- *   export const clientLoader = () => ({ user: requireAuth() });
+ *   export const clientLoader = async () => ({ user: await requireAuth() });
  *   clientLoader.hydrate = true as const;
  *   export function HydrateFallback() { return <div />; }
  *
@@ -18,14 +16,14 @@ import pb from '@/lib/pocketbase-client';
  * `HydrateFallback` keeps the protected UI from rendering for a frame before
  * the redirect.
  */
-export function requireAuth(redirectTo = '/login') {
-	const { record } = pb.authStore;
+export async function requireAuth(redirectTo = '/login') {
+	const user = await loadSession();
 
-	if (!pb.authStore.isValid || !record) {
+	if (!user) {
 		throw redirect(redirectTo);
 	}
 
-	return record;
+	return user;
 }
 
 export default requireAuth;

@@ -1,4 +1,29 @@
-import pb from '@/lib/pocketbase-client';
+import { ApiError, getSessionState, postJson, sessionEnded } from '@/lib/session';
+
+type Collection = 'students' | 'classes' | 'payments' | 'class_sessions';
+
+/** One call to the app's data API; the server fills in the owner from the session. */
+async function data<T>(body: { action: string; collection: Collection; id?: string; data?: unknown; from?: string }) {
+	try {
+		return await postJson<T>('/api/data', body);
+	} catch (error) {
+		if (error instanceof ApiError && error.status === 401) {
+			sessionEnded();
+			window.location.assign('/login');
+		}
+		throw error;
+	}
+}
+const list = async <T>(collection: Collection, from?: string) =>
+	(await data<{ items: T[] }>({ action: 'list', collection, from })).items;
+const create = async <T>(collection: Collection, record: unknown) =>
+	(await data<{ item: T }>({ action: 'create', collection, data: record })).item;
+const update = async <T>(collection: Collection, id: string, record: unknown) =>
+	(await data<{ item: T }>({ action: 'update', collection, id, data: record })).item;
+const remove = async (collection: Collection, id: string) => {
+	await data({ action: 'delete', collection, id });
+	return true;
+};
 
 export interface Student {
 	id: string;
@@ -51,32 +76,27 @@ export const WEEKDAYS = [
 export const WEEKDAYS_SHORT = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
 // ---- students ----
+// `owner` parameters are kept for the screens' sake; the server always uses the signed-in user.
 export async function listStudents() {
-	return pb.collection('students').getFullList<Student>({ sort: 'name' });
+	return list<Student>('students');
 }
-export async function createStudent(owner: string, data: Partial<Student>) {
-	return pb.collection('students').create<Student>({
-		owner,
-		status: 'active',
-		...data,
-	});
+export async function createStudent(_owner: string, data: Partial<Student>) {
+	return create<Student>('students', { status: 'active', ...data });
 }
 export async function updateStudent(id: string, data: Partial<Student>) {
-	return pb.collection('students').update<Student>(id, data);
+	return update<Student>('students', id, data);
 }
 export async function deleteStudent(id: string) {
-	return pb.collection('students').delete(id);
+	return remove('students', id);
 }
 
 // ---- classes ----
+/** Classes sorted by weekday and start time, each with its student under `expand`. */
 export async function listClasses() {
-	return pb
-		.collection('classes')
-		.getFullList<ClassItem>({ expand: 'student', sort: 'weekday,start_time' });
+	return list<ClassItem>('classes');
 }
-export async function createClass(owner: string, data: Partial<ClassItem>) {
-	return pb.collection('classes').create<ClassItem>({
-		owner,
+export async function createClass(_owner: string, data: Partial<ClassItem>) {
+	return create<ClassItem>('classes', {
 		duration_minutes: 60,
 		weekday: [],
 		location: '',
@@ -84,10 +104,10 @@ export async function createClass(owner: string, data: Partial<ClassItem>) {
 	});
 }
 export async function updateClass(id: string, data: Partial<ClassItem>) {
-	return pb.collection('classes').update<ClassItem>(id, data);
+	return update<ClassItem>('classes', id, data);
 }
 export async function deleteClass(id: string) {
-	return pb.collection('classes').delete(id);
+	return remove('classes', id);
 }
 
 /** Weekly class days per student, counting every scheduled class (optionally skipping one). */
@@ -105,10 +125,9 @@ export function weeklyDaysByStudent(classes: ClassItem[], skipClassId?: string) 
 export const roundDuration = (n: number) => Math.min(480, Math.max(15, Math.round((n || 60) / 5) * 5));
 
 // ---- payments ----
+/** Payments, latest due date first, each with its student under `expand`. */
 export async function listPayments() {
-	return pb
-		.collection('payments')
-		.getFullList<Payment>({ expand: 'student', sort: '-due_date' });
+	return list<Payment>('payments');
 }
 export type PaymentInput = Partial<
 	Omit<Payment, 'student' | 'due_date' | 'paid_date'>
@@ -117,18 +136,14 @@ export type PaymentInput = Partial<
 	due_date?: string | null;
 	paid_date?: string | null;
 };
-export async function createPayment(owner: string, data: PaymentInput) {
-	return pb.collection('payments').create<Payment>({
-		owner,
-		status: 'pending',
-		...data,
-	});
+export async function createPayment(_owner: string, data: PaymentInput) {
+	return create<Payment>('payments', { status: 'pending', ...data });
 }
 export async function updatePayment(id: string, data: PaymentInput) {
-	return pb.collection('payments').update<Payment>(id, data);
+	return update<Payment>('payments', id, data);
 }
 export async function deletePayment(id: string) {
-	return pb.collection('payments').delete(id);
+	return remove('payments', id);
 }
 
 // ---- billing helpers ----
@@ -243,7 +258,7 @@ export interface ClassSession {
 }
 
 /** Id of the signed-in professional (also available before useAuth hydrates). */
-export const currentUserId = () => pb.authStore.record?.id as string;
+export const currentUserId = () => getSessionState().user?.id as string;
 
 /** Local date as YYYY-MM-DD. */
 export function isoDate(d: Date) {
@@ -259,24 +274,17 @@ export function weekStart(d: Date) {
 
 /** Sessions from a date on, plus every pending make-up regardless of date. */
 export async function listSessions(fromDate: string) {
-	return pb.collection('class_sessions').getFullList<ClassSession>({
-		filter: pb.filter('date >= {:from} || status = "makeup"', { from: fromDate }),
-		expand: 'class.student',
-		sort: 'date',
-		requestKey: null,
-	});
+	return list<ClassSession>('class_sessions', fromDate);
 }
 export async function createSession(
-	owner: string,
+	_owner: string,
 	data: { class: string; date: string; status: SessionStatus },
 ) {
-	return pb
-		.collection('class_sessions')
-		.create<ClassSession>({ owner, makeup_date: '', makeup_time: '', ...data });
+	return create<ClassSession>('class_sessions', { makeup_date: '', makeup_time: '', ...data });
 }
 export async function updateSession(id: string, data: Partial<ClassSession>) {
-	return pb.collection('class_sessions').update<ClassSession>(id, data);
+	return update<ClassSession>('class_sessions', id, data);
 }
 export async function deleteSession(id: string) {
-	return pb.collection('class_sessions').delete(id);
+	return remove('class_sessions', id);
 }

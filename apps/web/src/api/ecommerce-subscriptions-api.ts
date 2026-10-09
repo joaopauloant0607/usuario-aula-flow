@@ -16,7 +16,7 @@
  *
  * Without those two lines every call here answers 404.
  */
-import pb from '@/lib/pocketbase-client';
+import { loadSession } from '@/lib/session';
 import { initializeCheckout } from '@/api/ecommerce-api';
 
 export type EcommerceBillingInterval = 'daily' | 'weekly' | 'monthly' | 'yearly';
@@ -58,8 +58,6 @@ export const FREE_TIER_TITLE = 'Free';
 
 /** Set before leaving for checkout so the return page knows to poll. */
 export const SUBSCRIPTION_PENDING_KEY = 'subscriptionPending';
-
-const authHeader = (): Record<string, string> => ({ Authorization: `Bearer ${pb.authStore.token}` });
 
 export class SubscriptionApiError extends Error {
 	status: number;
@@ -116,7 +114,7 @@ export const tierTitles = (subscriptions: EcommerceSubscription[]): string[] =>
 
 /**
  * The signed-in visitor's subscriptions, in every status. Empty for a visitor
- * who has never checked out. Requires a signed-in PocketBase user.
+ * who has never checked out. Requires a signed-in user.
  *
  * @example
  * const { subscriptions } = await getUserSubscriptions();
@@ -125,7 +123,7 @@ export const tierTitles = (subscriptions: EcommerceSubscription[]): string[] =>
 export const getUserSubscriptions = async (): Promise<{ subscriptions: EcommerceSubscription[] }> => {
 	// POST, not GET: the edge cache stores GET responses (including errors) by
 	// URL, so a per-user read must not be a GET. See the resource route.
-	const response = await fetch('/api/ecommerce/subscriptions', { method: 'POST', headers: authHeader() });
+	const response = await fetch('/api/ecommerce/subscriptions', { method: 'POST', credentials: 'same-origin' });
 
 	if (!response.ok) {
 		throw new SubscriptionApiError(`Failed to load subscriptions: ${response.status}`, response.status);
@@ -137,7 +135,7 @@ export const getUserSubscriptions = async (): Promise<{ subscriptions: Ecommerce
 /**
  * Sends the visitor to hosted checkout for one plan variant.
  *
- * `customer` is what links the resulting subscription to the PocketBase user, so
+ * `customer` is what links the resulting subscription to the signed-in user, so
  * the visitor must be signed in first — send them to the login page otherwise,
  * or the payment succeeds and nothing is entitled.
  *
@@ -160,9 +158,9 @@ export const startSubscriptionCheckout = async ({
 	cancelPath?: string;
 	locale?: string;
 }): Promise<void> => {
-	const user = pb.authStore.record;
+	const user = await loadSession();
 
-	if (!pb.authStore.isValid || !user) {
+	if (!user) {
 		throw new SubscriptionApiError('Sign in before subscribing', 401);
 	}
 
@@ -181,7 +179,7 @@ export const startSubscriptionCheckout = async ({
 		successUrl: `${window.location.origin}${successPath}`,
 		cancelUrl: `${window.location.origin}${cancelPath}`,
 		locale,
-		customer: { external_id: user.id, email: user.email as string | undefined },
+		customer: { external_id: user.id, email: user.email },
 	});
 
 	sessionStorage.setItem(SUBSCRIPTION_PENDING_KEY, '1');
@@ -215,7 +213,8 @@ export const getManageSubscriptionUrl = async ({
 }): Promise<{ url: string }> => {
 	const response = await fetch('/api/ecommerce/subscriptions/manage', {
 		method: 'POST',
-		headers: { 'Content-Type': 'application/json', ...authHeader() },
+		credentials: 'same-origin',
+		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify({ subscriptionId, returnUrl }),
 	});
 	const body = (await response.json().catch(() => null)) as

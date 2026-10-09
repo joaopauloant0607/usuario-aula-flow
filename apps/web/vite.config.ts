@@ -11,7 +11,6 @@ import inlineEditPlugin from './plugins/visual-editor/vite-plugin-react-inline-e
 import devHeadersPlugin from './plugins/vite-plugin-dev-headers.js';
 import horizonsLoggerPlugin from './plugins/vite-plugin-horizons-logger.js';
 import iframeRouteRestorationPlugin from './plugins/vite-plugin-iframe-route-restoration.js';
-import pocketbaseAuthPlugin from './plugins/vite-plugin-pocketbase-auth.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const monorepoRoot = path.resolve(__dirname, '../..');
@@ -45,13 +44,6 @@ export default defineConfig({
 			'Cross-Origin-Embedder-Policy': 'credentialless',
 		},
 		allowedHosts: ['.app-preview.com', '.app-preview.io'],
-		// On Horizons the platform routes /hcgi/platform to PocketBase; locally Vite does it.
-		proxy: {
-			'/hcgi/platform': {
-				target: 'http://127.0.0.1:8090',
-				rewrite: (p) => p.replace(/^\/hcgi\/platform/, ''),
-			},
-		},
 		fs: {
 			strict: true,
 			allow: [__dirname, path.join(monorepoRoot, 'node_modules')],
@@ -75,7 +67,6 @@ export default defineConfig({
 				inlineEditPlugin(),
 				editModeDevPlugin(),
 				iframeRouteRestorationPlugin(),
-				pocketbaseAuthPlugin(),
 				sessionJournalPlugin(),
 			]
 			: []),

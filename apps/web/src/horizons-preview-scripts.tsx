@@ -26,7 +26,6 @@ export function HorizonsPreviewScripts() {
 					<script type="module" src={viteVirtualSrc('virtual:horizons-runtime')} />
 					<script type="module" src={viteVirtualSrc('virtual:horizons-edit-mode')} />
 					<script type="module" src={viteVirtualSrc('virtual:horizons-iframe-route-restoration')} />
-					<script type="module" src={viteVirtualSrc('virtual:horizons-pocketbase-auth')} />
 					<script type="module" src={viteVirtualSrc('virtual:session-journal-client')} />
 				</>
 			) : null}

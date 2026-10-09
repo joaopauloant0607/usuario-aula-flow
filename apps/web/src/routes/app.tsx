@@ -15,8 +15,8 @@ export function meta({ matches, location }: Route.MetaArgs) {
 	);
 }
 
-export function clientLoader() {
-	requireAuth();
+export async function clientLoader() {
+	await requireAuth();
 	return null;
 }
 clientLoader.hydrate = true as const;

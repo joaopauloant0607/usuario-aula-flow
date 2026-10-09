@@ -5,8 +5,8 @@
   "type": "module",
   "scripts": {
     "setup": "npm install",
-    "dev": "concurrently --kill-others --raw \"npm run dev --prefix apps/web\" \"npm run dev --prefix apps/pocketbase\"",
-    "dev:celular": "concurrently --kill-others --raw \"npm run dev:celular --prefix apps/web\" \"npm run dev --prefix apps/pocketbase\"",
+    "dev": "npm run dev --prefix apps/web",
+    "dev:celular": "npm run dev:celular --prefix apps/web",
     "build": "concurrently --raw \"npm run build --prefix apps/web\"",
     "start": "node server.mjs",
     "lint": "concurrently --raw \"npm run lint --prefix apps/web\"",
@@ -25,6 +25,6 @@
     "shell-quote": "^1.12.0"
   },
   "workspaces": [
-    "apps/*"
+    "apps/web"
   ]
 }
