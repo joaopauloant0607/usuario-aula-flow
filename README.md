@@ -42,7 +42,7 @@ Configurações de compilação na Hostinger:
 
 Variáveis de ambiente:
 
-- `DB_HOST` (`localhost`), `DB_PORT` (`3306`), `DB_NAME`, `DB_USER`, `DB_PASSWORD`: o banco MySQL criado em Bancos de dados > Gerenciamento.
+- `DB_HOST` (`127.0.0.1`; o site também troca `localhost` por esse valor), `DB_PORT` (`3306`), `DB_NAME`, `DB_USER`, `DB_PASSWORD`: o banco MySQL criado em Bancos de dados > Gerenciamento.
 - `SMTP_HOST` (`smtp.hostinger.com`), `SMTP_PORT` (`465`), `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`: a caixa de e-mail que envia o link de "Esqueci minha senha".
 - `APP_URL`: endereço do site, por exemplo `https://aulaflow.live`, usado no link do e-mail.
 

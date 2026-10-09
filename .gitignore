@@ -10,6 +10,9 @@ build/
 # Local development database (npm run dev)
 .data/
 
+# Old PocketBase folder (no longer used; its local database must never be committed)
+apps/pocketbase/
+
 # Old Horizons backup
 app.tar.gz
 

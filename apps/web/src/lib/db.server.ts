@@ -43,12 +43,15 @@ const mysqlExecutor = (conn: Pool | PoolConnection): Executor => ({
 
 async function openMysql(): Promise<Db> {
 	const mysql = await import('mysql2/promise');
+	const env = (name: string) => process.env[name]?.trim();
 	const pool = mysql.createPool({
-		host: process.env.DB_HOST,
-		port: Number(process.env.DB_PORT) || 3306,
-		user: process.env.DB_USER,
-		password: process.env.DB_PASSWORD,
-		database: process.env.DB_NAME,
+		// Node resolves "localhost" to IPv6 ::1, which Hostinger's database users are not
+		// granted for ("Access denied ... @'::1'"); 127.0.0.1 forces IPv4.
+		host: env('DB_HOST') === 'localhost' ? '127.0.0.1' : env('DB_HOST'),
+		port: Number(env('DB_PORT')) || 3306,
+		user: env('DB_USER'),
+		password: env('DB_PASSWORD'),
+		database: env('DB_NAME'),
 		charset: 'utf8mb4',
 		connectionLimit: 5,
 		enableKeepAlive: true,
