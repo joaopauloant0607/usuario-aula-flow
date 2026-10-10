@@ -52,6 +52,11 @@ async function openMysql(): Promise<Db> {
 		user: env('DB_USER'),
 		password: env('DB_PASSWORD'),
 		database: env('DB_NAME'),
+		// TiDB Cloud rejects unencrypted connections; DB_SSL=true forces TLS on other hosts.
+		ssl:
+			env('DB_SSL') === 'true' || env('DB_HOST')?.endsWith('.tidbcloud.com')
+				? { minVersion: 'TLSv1.2', rejectUnauthorized: true }
+				: undefined,
 		charset: 'utf8mb4',
 		connectionLimit: 5,
 		enableKeepAlive: true,
