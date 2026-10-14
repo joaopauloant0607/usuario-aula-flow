@@ -85,7 +85,7 @@ export function PlanList() {
 				</article>;
 			})}
 		</div>
-		<p className="plan-footnote">7 dias grátis para testar, sem cartão. Todos os recursos estão incluídos nos dois planos.</p>
+		<p className="plan-footnote">Todos os recursos estão incluídos nos dois planos. Cancele quando quiser.</p>
 		{error && <p role="alert" className="notice">{error}</p>}
 	</>;
 }

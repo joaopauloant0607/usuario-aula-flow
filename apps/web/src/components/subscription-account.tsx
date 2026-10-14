@@ -4,8 +4,6 @@ import { useAuth } from '@/hooks/use-auth';
 import { getAccess, getCheckoutLinks } from '@/lib/session';
 import type { Access } from '@/lib/session';
 
-const date = (iso: string) => new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
-
 export function SubscriptionAccount() {
 	const { user, logout } = useAuth();
 	const navigate = useNavigate();
@@ -41,16 +39,10 @@ export function SubscriptionAccount() {
 			<p>Seu acesso está liberado. Para alterar o plano, atualizar o pagamento ou cancelar, use o portal de cobrança.</p>
 			<button className="button" disabled={busy} type="button" onClick={openPortal}>{busy ? 'Abrindo…' : 'Gerenciar assinatura'}</button>
 		</section>}
-		{access?.status === 'trial' && <section className="plan-panel">
-			<span className="eyebrow">TESTE GRÁTIS</span>
-			<h2>Você está no período de teste</h2>
-			<p>Seu acesso completo vai até {date(access.trial_ends_at)}. Assine antes disso para continuar sem interrupção.</p>
-			<Link className="button" to="/plans">Conhecer os planos</Link>
-		</section>}
 		{access?.status === 'expired' && <section className="plan-panel">
-			<span className="eyebrow">TESTE ENCERRADO</span>
+			<span className="eyebrow">SEM ASSINATURA ATIVA</span>
 			<h2>Assine para continuar</h2>
-			<p>Seu teste grátis terminou em {date(access.trial_ends_at)}. Seus dados continuam salvos e voltam assim que você assinar.</p>
+			<p>Escolha um plano para liberar o acesso. Seus dados continuam salvos.</p>
 			<Link className="button" to="/plans">Ver planos</Link>
 		</section>}
 		{error && <p role="alert" className="notice">{error}</p>}

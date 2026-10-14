@@ -27,20 +27,16 @@ export function HydrateFallback() {
 	return <main className="skeleton">Carregando seu espaço…</main>;
 }
 
-const DAY_MS = 24 * 60 * 60 * 1000;
-
 export default function AppRoute({ loaderData }: Route.ComponentProps) {
-	const { access } = loaderData;
-
-	if (access.status === 'expired') {
+	if (loaderData.access.status !== 'active') {
 		return (
 			<main className="page-shell">
 				<section className="plan-panel paywall">
-					<span className="eyebrow">TESTE GRÁTIS ENCERRADO</span>
-					<h2>Continue organizando suas aulas.</h2>
+					<span className="eyebrow">ASSINATURA NECESSÁRIA</span>
+					<h2>Assine para organizar suas aulas.</h2>
 					<p>
-						Seus 7 dias de teste terminaram. Seus alunos, sua agenda e seus recebimentos continuam salvos:
-						assine um plano para voltar a usar o Aula Flow.
+						Escolha um plano para liberar seus alunos, sua agenda e seus recebimentos. Se você já assinou, o
+						acesso é liberado em poucos instantes: atualize a página.
 					</p>
 					<Link className="button" to="/plans">Ver planos a partir de R$ 29,90/mês</Link>
 				</section>
@@ -48,19 +44,5 @@ export default function AppRoute({ loaderData }: Route.ComponentProps) {
 		);
 	}
 
-	const daysLeft = Math.max(1, Math.ceil((new Date(access.trial_ends_at).getTime() - Date.now()) / DAY_MS));
-
-	return (
-		<>
-			{access.status === 'trial' && (
-				<div className="trial-banner">
-					<span>
-						Teste grátis: {daysLeft === 1 ? 'último dia' : `faltam ${daysLeft} dias`}. Aproveite todos os recursos.
-					</span>
-					<Link to="/plans">Assinar agora</Link>
-				</div>
-			)}
-			<Dashboard />
-		</>
-	);
+	return <Dashboard />;
 }

@@ -72,7 +72,7 @@ export function Hero() {
 				</p>
 				<div className="hero-actions">
 					<a href="/login?criar=1" className="button">
-						Testar grátis por 7 dias <ArrowUpRight size={19} />
+						Criar minha conta <ArrowUpRight size={19} />
 					</a>
 					<a href="#como-funciona" className="text-link">
 						Ver como funciona <span>↓</span>
@@ -80,7 +80,7 @@ export function Hero() {
 				</div>
 				<div className="assurances">
 					<span>
-						<Check size={14} /> 7 dias grátis, sem cartão
+						<Check size={14} /> Feito para professores independentes
 					</span>
 					<span>
 						<Check size={14} /> Funciona no celular e no computador

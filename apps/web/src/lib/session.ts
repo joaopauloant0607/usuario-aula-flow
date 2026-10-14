@@ -108,9 +108,9 @@ export async function confirmPasswordReset(token: string, password: string) {
 	return user;
 }
 
-export type Access = { status: 'trial' | 'active' | 'expired'; trial_ends_at: string };
+export type Access = { status: 'active' | 'expired' };
 
-/** Whether the signed-in user is in their free trial, paying, or blocked until they subscribe. */
+/** Whether the signed-in user has an active subscription or is blocked until they subscribe. */
 export const getAccess = () => auth<{ access: Access }>({ action: 'access' }).then(({ access }) => access);
 
 export type CheckoutLinks = { monthly: string | null; annual: string | null; portal: string | null };
