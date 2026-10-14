@@ -71,8 +71,8 @@ export function Hero() {
 					<br className="desktop" /> A organização que você precisa para fazer o que faz melhor: ensinar.
 				</p>
 				<div className="hero-actions">
-					<a href="#planos" className="button">
-						Começar agora <ArrowUpRight size={19} />
+					<a href="/login?criar=1" className="button">
+						Testar grátis por 7 dias <ArrowUpRight size={19} />
 					</a>
 					<a href="#como-funciona" className="text-link">
 						Ver como funciona <span>↓</span>
@@ -80,7 +80,7 @@ export function Hero() {
 				</div>
 				<div className="assurances">
 					<span>
-						<Check size={14} /> Feito para professores independentes
+						<Check size={14} /> 7 dias grátis, sem cartão
 					</span>
 					<span>
 						<Check size={14} /> Funciona no celular e no computador

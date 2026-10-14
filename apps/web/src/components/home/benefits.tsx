@@ -1,5 +1,4 @@
 import { Users, CalendarDays, Wallet, LayoutDashboard, Repeat, ShieldCheck, ArrowUpRight } from 'lucide-react';
-import type { ProductListItem } from '@/api/ecommerce-api';
 import { PlanList } from '@/components/plan-list';
 
 const features=[
@@ -21,13 +20,13 @@ const faq=[
 {q:'Preciso instalar alguma coisa?',a:'Não. O Aulaflow funciona direto no navegador, no celular ou no computador. É só entrar com seu e-mail e senha.'},
 {q:'Para quem o Aulaflow foi feito?',a:'Para quem dá aulas por conta própria: professores particulares, tutores, instrutores e personal trainers, presencial ou online.'},
 {q:'Outras pessoas conseguem ver meus alunos?',a:'Não. Cada conta enxerga apenas os próprios alunos, aulas e recebimentos.'},
-{q:'Posso mudar de plano ou cancelar?',a:'Sim. Na Área do assinante você altera o plano, atualiza o pagamento ou cancela pelo portal de cobrança.'},
+{q:'Posso mudar de plano ou cancelar?',a:'Sim. Na Área do assinante você abre o portal de cobrança para alterar o plano, atualizar o pagamento ou cancelar.'},
 ];
 
-export function Benefits({plans,plansError}:{plans:ProductListItem[];plansError:boolean}){return <>
+export function Benefits(){return <>
 <section className="benefits" id="recursos"><div className="section-heading"><span className="eyebrow">02 / TUDO CONECTADO</span><h2>Seu talento é ensinar.<br/><span>O resto, a gente organiza.</span></h2><p>Troque as abas abertas e as anotações soltas<br/> por uma rotina mais leve, clara e profissional.</p></div><div className="benefit-list">{features.map(({Icon,title,text},i)=><article key={title}><span className="index">0{i+1}</span><Icon size={25}/><h3>{title}</h3><p>{text}</p></article>)}</div></section>
 <section className="steps" id="como-funciona"><span className="eyebrow">03 / COMO FUNCIONA</span><h2>Do cadastro à primeira aula<br/>em três passos.</h2><ol>{steps.map(({title,text},i)=><li key={title}><span className="step-number">{i+1}</span><h3>{title}</h3><p>{text}</p></li>)}</ol></section>
-<section className="pricing" id="planos"><span className="eyebrow">04 / PLANOS</span><h2>Um preço simples<br/>para uma rotina organizada.</h2><p className="pricing-lead">Escolha o período que faz mais sentido para você. Tudo incluso em todos os planos.</p><PlanList plans={plansError?[]:plans}/></section>
+<section className="pricing" id="planos"><span className="eyebrow">04 / PLANOS</span><h2>Um preço simples<br/>para uma rotina organizada.</h2><p className="pricing-lead">Escolha o período que faz mais sentido para você. Tudo incluso em todos os planos.</p><PlanList/></section>
 <section className="faq" id="perguntas"><span className="eyebrow">05 / PERGUNTAS FREQUENTES</span><h2>Ficou alguma dúvida?</h2><div className="faq-list">{faq.map(({q,a})=><details key={q}><summary>{q}</summary><p>{a}</p></details>)}</div></section>
 <section className="closing"><span className="eyebrow">COMECE HOJE</span><h2>Uma rotina mais leve<br/>começa com um passo.</h2><p>Crie sua conta, escolha sua assinatura e reúna sua rotina de ensino em um só espaço.</p><a className="button" href="#planos">Começar agora <ArrowUpRight size={18}/></a></section>
 </>;}

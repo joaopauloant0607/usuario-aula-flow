@@ -107,3 +107,13 @@ export async function confirmPasswordReset(token: string, password: string) {
 	setState({ user, loaded: true });
 	return user;
 }
+
+export type Access = { status: 'trial' | 'active' | 'expired'; trial_ends_at: string };
+
+/** Whether the signed-in user is in their free trial, paying, or blocked until they subscribe. */
+export const getAccess = () => auth<{ access: Access }>({ action: 'access' }).then(({ access }) => access);
+
+export type CheckoutLinks = { monthly: string | null; annual: string | null; portal: string | null };
+
+/** Stripe payment links for the signed-in user, already tied to their account. */
+export const getCheckoutLinks = () => auth<{ links: CheckoutLinks }>({ action: 'checkout' }).then(({ links }) => links);

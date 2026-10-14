@@ -183,6 +183,10 @@ const readBodyWithinLimit = async (request: Request): Promise<Buffer> => {
 	return Buffer.concat(chunks);
 };
 
+/** The raw body as text, with the same 20MB cap. Needed to verify webhook signatures byte for byte. */
+export const readRawBody = async (request: Request): Promise<string> =>
+	(await readBodyWithinLimit(request)).toString('utf8');
+
 /** `request.json()` with a 20MB cap — nothing else limits how much a client can send. */
 export const readJsonBody = async <T>(request: Request): Promise<T> => {
 	const body = (await readBodyWithinLimit(request)).toString('utf8');

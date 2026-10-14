@@ -13,6 +13,7 @@ export default [
 	route('robots.txt', 'routes/robots.txt.ts'),
 	route('api/health', 'routes/api.health.ts'),
 	route('api/auth', 'routes/api.auth.ts'),
+	route('api/stripe/webhook', 'routes/api.stripe.webhook.ts'),
 	route('api/data', 'routes/api.data.ts'),
 	route('api/*', 'routes/api.$.ts'),
 ] satisfies RouteConfig;

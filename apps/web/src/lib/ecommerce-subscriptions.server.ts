@@ -18,6 +18,7 @@
  */
 import { apiError } from '@/lib/api.server';
 import { requireUser } from '@/lib/auth.server';
+import logger from '@/lib/logger.server';
 
 export type EcommerceBillingInterval = 'daily' | 'weekly' | 'monthly' | 'yearly';
 
@@ -104,6 +105,27 @@ const subscriptionsForUser = async (userId: string): Promise<EcommerceSubscripti
 	const customer = await getCustomer(userId);
 
 	return customer?.subscriptions ?? [];
+};
+
+/**
+ * Whether the user has any subscription in an entitled state. A store that is
+ * not configured or not answering counts as "no subscription" instead of an
+ * error, so it cannot take the app down for users still in their trial.
+ */
+export const hasActiveSubscription = async (userId: string): Promise<boolean> => {
+	if (!process.env.ECOMMERCE_API_URL || !process.env.ECOMMERCE_STORE_ID) {
+		return false;
+	}
+
+	try {
+		const subscriptions = await subscriptionsForUser(userId);
+
+		return subscriptions.some(subscription => ENTITLED_STATUSES.includes(subscription.status));
+	} catch (error) {
+		logger.error('Subscription check failed', error instanceof Error ? error.message : error);
+
+		return false;
+	}
 };
 
 /**

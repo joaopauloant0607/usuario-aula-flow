@@ -5,7 +5,9 @@
  * POST only: the CDN in front of the site may cache GET responses by URL for
  * every visitor, and these answers depend on who is asking.
  */
+import { getAccess } from '@/lib/access.server';
 import { apiError, json, readJsonBody, withApi } from '@/lib/api.server';
+import { checkoutLinks } from '@/lib/billing.server';
 import {
 	checkPassword,
 	clearedSessionCookie,
@@ -51,6 +53,16 @@ export const action = withApi(async ({ request }) => {
 			const session = await getSession(request);
 			if (!session) return json({ user: null });
 			return session.renewCookie ? withCookie({ user: session.user }, session.renewCookie) : json({ user: session.user });
+		}
+		case 'access': {
+			const session = await getSession(request);
+			if (!session) return apiError(401, 'Unauthorized');
+			return json({ access: await getAccess(session.user.id) });
+		}
+		case 'checkout': {
+			const session = await getSession(request);
+			if (!session) return apiError(401, 'Unauthorized');
+			return json({ links: checkoutLinks(session.user) });
 		}
 		case 'signup': {
 			if (!(await signupLimit(caller))) return tooMany();

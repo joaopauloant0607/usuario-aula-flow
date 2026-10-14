@@ -1,7 +1,63 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { useAuth } from '@/hooks/use-auth';
-import { activeSubscription, getUserSubscriptions, getManageSubscriptionUrl, isSubscriptionPending, waitForActiveSubscription } from '@/api/ecommerce-subscriptions-api';
-import { SubscriptionApiError } from '@/api/ecommerce-subscriptions-api';
-import type { EcommerceSubscription } from '@/api/ecommerce-subscriptions-api';
-export function SubscriptionAccount(){const {user,logout}=useAuth();const navigate=useNavigate();const [subscriptions,setSubscriptions]=useState<EcommerceSubscription[]>([]);const [state,setState]=useState('loading');const [error,setError]=useState('');const [busy,setBusy]=useState(false);useEffect(()=>{let current=true;async function load(){try{if(isSubscriptionPending()){if(current)setState('activating');const result=await waitForActiveSubscription({onUpdate:data=>{if(current)setSubscriptions(data);}});if(current)setState(result.isActivated?'ready':'processing');}else{const data=await getUserSubscriptions();if(current){setSubscriptions(data.subscriptions);setState('ready');}}}catch{if(current){setError('Não foi possível carregar sua assinatura. Atualize a página para tentar novamente.');setState('error');}}}void load();return()=>{current=false;};},[]);const active=activeSubscription(subscriptions);return <><span className="eyebrow">ÁREA DO ASSINANTE</span><h1>Olá, {String(user?.name||'professor')}.</h1><p>Seu espaço para acompanhar e gerenciar sua assinatura.</p>{state==='loading'&&<p className="skeleton">Carregando assinatura…</p>}{state==='activating'&&<p className="notice">Estamos ativando sua assinatura. Aguarde um momento…</p>}{state==='processing'&&<p className="notice">Seu pagamento ainda está sendo processado. Atualize esta página em alguns instantes.</p>}{state==='ready'&&(active?<section className="plan-panel"><span className="eyebrow">ASSINATURA ATIVA</span><h2>{active.product_title}</h2><p>Status: {active.status==='trialing'?'Em período de avaliação':'Ativa'}</p><p>Próxima renovação: {new Date(active.current_period_end).toLocaleDateString('pt-BR',{day:'2-digit',month:'long',year:'numeric',timeZone:'UTC'})}</p><button className="button" disabled={busy} type="button" onClick={async()=>{setBusy(true);setError('');try{const {url}=await getManageSubscriptionUrl({subscriptionId:active.id,returnUrl:window.location.href});window.location.href=url;}catch(err){if(err instanceof SubscriptionApiError&&err.code==='STRIPE_NOT_CONFIGURED'){setError('O portal de cobrança não está disponível porque a loja ainda não tem um método de pagamento real conectado (ou esta assinatura foi paga em modo de teste). Conecte um provedor de pagamento, como o Stripe, nas configurações da sua loja online para habilitar o gerenciamento.');}else{setError('Não foi possível abrir o portal de cobrança. Verifique sua conexão e tente novamente.');}}finally{setBusy(false);}}}>{busy?'Abrindo…':'Gerenciar assinatura'}</button><p>Altere seu plano, atualize o pagamento ou cancele pelo portal de cobrança.</p></section>:<section className="plan-panel"><h2>Seu próximo passo</h2><p>Você ainda não tem uma assinatura ativa. Escolha um plano para começar.</p><Link className="button" to="/plans">Conhecer os planos</Link></section>)}{error&&<p role="alert" className="notice">{error}</p>}<div className="account-links"><Link to="/plans">Ver ou mudar meu plano</Link><Link to="/">Voltar ao início</Link><button className="link-button" onClick={()=>{logout();navigate('/login');}}>Sair da conta</button></div></>;}
+import { getAccess, getCheckoutLinks } from '@/lib/session';
+import type { Access } from '@/lib/session';
+
+const date = (iso: string) => new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
+
+export function SubscriptionAccount() {
+	const { user, logout } = useAuth();
+	const navigate = useNavigate();
+	const [access, setAccess] = useState<Access | null>(null);
+	const [error, setError] = useState('');
+	const [busy, setBusy] = useState(false);
+	useEffect(() => {
+		getAccess().then(setAccess).catch(() => setError('Não foi possível carregar sua assinatura. Atualize a página para tentar novamente.'));
+	}, []);
+
+	async function openPortal() {
+		setBusy(true);
+		setError('');
+		try {
+			const { portal } = await getCheckoutLinks();
+			if (!portal) { setError('O portal de assinatura ainda não está disponível. Fale com o suporte para alterar ou cancelar.'); return; }
+			window.location.href = portal;
+		} catch {
+			setError('Não foi possível abrir o portal. Verifique sua conexão e tente novamente.');
+		} finally {
+			setBusy(false);
+		}
+	}
+
+	return <>
+		<span className="eyebrow">ÁREA DO ASSINANTE</span>
+		<h1>Olá, {String(user?.name || 'professor')}.</h1>
+		<p>Seu espaço para acompanhar e gerenciar sua assinatura.</p>
+		{!access && !error && <p className="skeleton">Carregando assinatura…</p>}
+		{access?.status === 'active' && <section className="plan-panel">
+			<span className="eyebrow">ASSINATURA ATIVA</span>
+			<h2>Aula Flow</h2>
+			<p>Seu acesso está liberado. Para alterar o plano, atualizar o pagamento ou cancelar, use o portal de cobrança.</p>
+			<button className="button" disabled={busy} type="button" onClick={openPortal}>{busy ? 'Abrindo…' : 'Gerenciar assinatura'}</button>
+		</section>}
+		{access?.status === 'trial' && <section className="plan-panel">
+			<span className="eyebrow">TESTE GRÁTIS</span>
+			<h2>Você está no período de teste</h2>
+			<p>Seu acesso completo vai até {date(access.trial_ends_at)}. Assine antes disso para continuar sem interrupção.</p>
+			<Link className="button" to="/plans">Conhecer os planos</Link>
+		</section>}
+		{access?.status === 'expired' && <section className="plan-panel">
+			<span className="eyebrow">TESTE ENCERRADO</span>
+			<h2>Assine para continuar</h2>
+			<p>Seu teste grátis terminou em {date(access.trial_ends_at)}. Seus dados continuam salvos e voltam assim que você assinar.</p>
+			<Link className="button" to="/plans">Ver planos</Link>
+		</section>}
+		{error && <p role="alert" className="notice">{error}</p>}
+		<div className="account-links">
+			<Link to="/app">Ir para o meu espaço</Link>
+			<Link to="/">Voltar ao início</Link>
+			<button className="link-button" onClick={() => { logout(); navigate('/login'); }}>Sair da conta</button>
+		</div>
+	</>;
+}

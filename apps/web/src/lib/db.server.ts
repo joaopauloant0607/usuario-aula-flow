@@ -239,6 +239,22 @@ const MIGRATIONS: { id: string; statements: string[] }[] = [
 			'CREATE INDEX `idx_class_sessions_owner` ON `class_sessions` (`owner`)',
 		],
 	},
+	{
+		id: '002_billing',
+		statements: [
+			// One row per Stripe customer. `user` is empty until checkout links it to an account.
+			`CREATE TABLE IF NOT EXISTS \`billing\` (
+				\`customer\` VARCHAR(64) NOT NULL PRIMARY KEY,
+				\`user\` VARCHAR(15) NOT NULL,
+				\`subscription\` VARCHAR(64) NOT NULL,
+				\`status\` VARCHAR(24) NOT NULL,
+				\`plan\` VARCHAR(10) NOT NULL,
+				\`period_end\` BIGINT NOT NULL,
+				\`updated\` VARCHAR(24) NOT NULL
+			)`,
+			'CREATE INDEX `idx_billing_user` ON `billing` (`user`)',
+		],
+	},
 ];
 
 const MYSQL_DUPLICATE_INDEX = 1061;

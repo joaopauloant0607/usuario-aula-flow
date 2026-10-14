@@ -7,6 +7,7 @@
  * responses by URL for every visitor.
  */
 import { apiError, readJsonBody, withApi } from '@/lib/api.server';
+import { requireAccess } from '@/lib/access.server';
 import { requireUser } from '@/lib/auth.server';
 import { createRateLimiter } from '@/lib/rate-limit.server';
 import { handleDataRequest } from '@/lib/records.server';
@@ -24,6 +25,7 @@ export const action = withApi(async ({ request }) => {
 
 	const user = await requireUser(request);
 	if (!(await userLimit(user.id))) return apiError(429, 'Too many requests, please try again later');
+	await requireAccess(user.id);
 	return handleDataRequest(user.id, (await readJsonBody<Record<string, unknown> | null>(request)) ?? {});
 }, { rateLimit: false });
 
