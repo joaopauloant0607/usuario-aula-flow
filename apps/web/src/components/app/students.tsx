@@ -34,6 +34,15 @@ function maskMoney(raw: string) {
 }
 const parseMoney = (v: string) => Number(v.replace(/\./g, '').replace(',', '.')) || 0;
 
+// Phone mask: at most 11 digits, shown as (11) 11111-1111
+function maskPhone(raw: string) {
+	const d = raw.replace(/\D/g, '').slice(0, 11);
+	if (d.length <= 2) return d ? `(${d}` : '';
+	if (d.length <= 6) return `(${d.slice(0, 2)}) ${d.slice(2)}`;
+	if (d.length <= 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`;
+	return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
+}
+
 export function Students() {
 	const { user } = useAuth();
 	const [items, setItems] = useState<Student[]>([]);
@@ -70,7 +79,7 @@ export function Students() {
 		setForm({
 			name: s.name,
 			email: s.email,
-			phone: s.phone,
+			phone: maskPhone(s.phone),
 			subject: s.subject,
 			notes: s.notes,
 			status: s.status,
@@ -86,6 +95,11 @@ export function Students() {
 		e.preventDefault();
 		if (!form.name.trim()) {
 			setErr('Informe o nome do aluno.');
+			return;
+		}
+		const phoneDigits = form.phone.replace(/\D/g, '').length;
+		if (phoneDigits > 0 && phoneDigits < 10) {
+			setErr('Telefone incompleto. Use o formato (11) 11111-1111.');
 			return;
 		}
 		setSaving(true);
@@ -239,17 +253,21 @@ export function Students() {
 							<div className="field">
 								<label>Telefone</label>
 								<input
+									type="tel"
+									inputMode="numeric"
+									autoComplete="tel"
+									maxLength={15}
 									value={form.phone}
-									onChange={(e) => setForm({ ...form, phone: e.target.value })}
+									onChange={(e) => setForm({ ...form, phone: maskPhone(e.target.value) })}
 									placeholder="(11) 99999-9999"
 								/>
 							</div>
 							<div className="field">
-								<label>Matéria</label>
+								<label>Objetivo</label>
 								<input
 									value={form.subject}
 									onChange={(e) => setForm({ ...form, subject: e.target.value })}
-									placeholder="Inglês, Matemática…"
+									placeholder="Emagrecimento, reforço escolar…"
 								/>
 							</div>
 							<div className="field">

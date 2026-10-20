@@ -136,7 +136,8 @@ export function Schedule() {
 		setSaving(true);
 		setErr('');
 		try {
-			const data = { ...form, duration_minutes: roundDuration(Number(form.duration_minutes)) };
+			// The objective is set once in the student's record, so the class just follows it.
+			const data = { ...form, subject: student?.subject || '', duration_minutes: roundDuration(Number(form.duration_minutes)) };
 			if (editing) await updateClass(editing.id, data);
 			else await createClass(user!.id, data);
 			setShowForm(false);
@@ -216,14 +217,6 @@ export function Schedule() {
 										</option>
 									))}
 								</select>
-							</div>
-							<div className="field">
-								<label>Matéria</label>
-								<input
-									value={form.subject}
-									onChange={(e) => setForm({ ...form, subject: e.target.value })}
-									placeholder="Inglês, Matemática…"
-								/>
 							</div>
 							<div className="field">
 								<label>Hora de início</label>
@@ -380,7 +373,7 @@ const firstName = (s?: Student) => (s?.name || '').trim().split(/\s+/)[0];
 function confirmLink(o: Occurrence) {
 	const st = o.cls.expand?.student;
 	const day = WEEKDAYS[new Date(o.date + 'T12:00').getDay()].toLowerCase();
-	const what = o.cls.subject ? `aula de ${o.cls.subject}` : 'aula';
+	const what = 'aula';
 	return whatsappLink(
 		st?.phone,
 		`Olá, ${firstName(st)}! Confirmando nossa ${what} ${day} (${shortDay(o.date)}) às ${o.cls.start_time}. Você confirma presença?`,
@@ -431,6 +424,9 @@ function WaButton({ link, title }: { link: string | null; title: string }) {
 		</a>
 	);
 }
+
+/** The objective lives in the student's record; the class only keeps a copy for old data. */
+const goal = (c: ClassItem) => c.expand?.student?.subject || c.subject || '';
 
 const HOUR_PX = 52;
 const toMinutes = (time: string) => {
@@ -496,7 +492,7 @@ function WeekGrid({
 										>
 											<b>{o.cls.start_time}</b>
 											<span>{firstName(o.cls.expand?.student) || 'Aluno'}</span>
-											{o.cls.subject && length >= 50 && <small>{o.cls.subject}</small>}
+											{goal(o.cls) && length >= 50 && <small>{goal(o.cls)}</small>}
 										</button>
 									);
 								})}
@@ -715,7 +711,7 @@ function Attendance({
 									<div className="grow">
 										<div className="name">
 											{c?.expand?.student?.name || 'Aluno'}
-											{c?.subject ? ` · ${c.subject}` : ''}
+											{c && goal(c) ? ` · ${goal(c)}` : ''}
 										</div>
 										<div className="meta">
 											Aula de {shortDay(s.date)} às {c?.start_time}
@@ -818,7 +814,7 @@ function Attendance({
 									<div className="grow">
 										<div className="name">
 											{o.cls.expand?.student?.name || 'Aluno'}
-											{o.cls.subject ? ` · ${o.cls.subject}` : ''}
+											{goal(o.cls) ? ` · ${goal(o.cls)}` : ''}
 										</div>
 										<div className="meta">
 											{o.cls.duration_minutes ? `${o.cls.duration_minutes} min` : ''}

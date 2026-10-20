@@ -327,7 +327,18 @@ export function Finance() {
 								<label>Aluno</label>
 								<select
 									value={form.student}
-									onChange={(e) => setForm({ ...form, student: e.target.value })}
+									onChange={(e) => {
+										const picked = students.find((s) => s.id === e.target.value);
+										// The fee and the label come from the student's record, so they are not typed again.
+										setForm({
+											...form,
+											student: e.target.value,
+											...(!editing && picked && picked.monthly_fee > 0 && !form.amount
+												? { amount: String(picked.monthly_fee) }
+												: {}),
+											...(!editing && picked && !form.description ? { description: 'Mensalidade' } : {}),
+										});
+									}}
 								>
 									<option value="">Nenhum / avulso</option>
 									{students.map((s) => (
