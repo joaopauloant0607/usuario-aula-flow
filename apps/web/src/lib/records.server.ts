@@ -195,6 +195,84 @@ async function prepare(db: Executor, c: Collection, owner: string, data: unknown
 
 const DUPLICATE = () => bad('Já existe um registro para esta aula nesse dia.');
 
+// ---- schedule conflicts ----
+
+const DAY_NAMES = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado'];
+const minutesOf = (time: unknown) => {
+	const [h, m] = String(time || '0:0').split(':').map(Number);
+	return (h || 0) * 60 + (m || 0);
+};
+const clock = (minutes: number) => `${String(Math.floor(minutes / 60) % 24).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
+const overlaps = (aStart: number, aLength: number, bStart: number, bLength: number) =>
+	aStart < bStart + bLength && bStart < aStart + aLength;
+const daysOf = (value: unknown): string[] => {
+	try {
+		const days = JSON.parse(String(value));
+		return Array.isArray(days) ? days.map(String) : [];
+	} catch {
+		return [];
+	}
+};
+const lengthOf = (minutes: unknown) => Number(minutes) || 60;
+
+/** Names of the students by id, for conflict messages. */
+async function studentNames(db: Executor, owner: string) {
+	const rows = await db.all<Row>('SELECT `id`, `name` FROM `students` WHERE `owner` = ?', [owner]);
+	return new Map(rows.map((r) => [String(r.id), String(r.name)]));
+}
+
+const busy = (when: string, name?: string) =>
+	bad(`Horário ocupado: ${when} já tem aula${name ? ` com ${name}` : ''}. Escolha outro horário.`);
+
+/** One teacher cannot give two lessons at the same time: rejects a weekly class that overlaps another. */
+async function assertClassFree(db: Executor, owner: string, next: Record<string, Param>, skipId: string | null) {
+	const days = daysOf(next.weekday);
+	const start = minutesOf(next.start_time);
+	const length = lengthOf(next.duration_minutes);
+	const rows = await db.all<Row>('SELECT * FROM `classes` WHERE `owner` = ?', [owner]);
+	const names = await studentNames(db, owner);
+	for (const row of rows) {
+		if (skipId && row.id === skipId) continue;
+		const day = daysOf(row.weekday).find((d) => days.includes(d));
+		if (day === undefined) continue;
+		const otherStart = minutesOf(row.start_time);
+		const otherLength = lengthOf(row.duration_minutes);
+		if (overlaps(start, length, otherStart, otherLength)) {
+			throw busy(`${DAY_NAMES[Number(day)]}, ${clock(otherStart)} às ${clock(otherStart + otherLength)}`, names.get(String(row.student)));
+		}
+	}
+}
+
+/** A make-up lesson must not collide with a weekly class or another make-up on that date. */
+async function assertMakeupFree(db: Executor, owner: string, next: Row, skipId: string | null) {
+	const date = String(next.makeup_date || '');
+	const time = String(next.makeup_time || '');
+	if (!date || !time) return;
+	const [cls] = await db.all<Row>('SELECT * FROM `classes` WHERE `id` = ? AND `owner` = ?', [String(next.class), owner]);
+	const start = minutesOf(time);
+	const length = lengthOf(cls?.duration_minutes);
+	const weekday = String(new Date(`${date}T12:00`).getDay());
+	const names = await studentNames(db, owner);
+
+	for (const row of await db.all<Row>('SELECT * FROM `classes` WHERE `owner` = ?', [owner])) {
+		if (!daysOf(row.weekday).includes(weekday)) continue;
+		const otherStart = minutesOf(row.start_time);
+		const otherLength = lengthOf(row.duration_minutes);
+		if (overlaps(start, length, otherStart, otherLength)) {
+			throw busy(`${DAY_NAMES[Number(weekday)]}, ${clock(otherStart)} às ${clock(otherStart + otherLength)}`, names.get(String(row.student)));
+		}
+	}
+	for (const row of await db.all<Row>("SELECT * FROM `class_sessions` WHERE `owner` = ? AND `makeup_date` = ? AND `makeup_time` <> ''", [owner, date])) {
+		if (skipId && row.id === skipId) continue;
+		const [other] = await db.all<Row>('SELECT * FROM `classes` WHERE `id` = ?', [String(row.class)]);
+		const otherStart = minutesOf(row.makeup_time);
+		const otherLength = lengthOf(other?.duration_minutes);
+		if (overlaps(start, length, otherStart, otherLength)) {
+			throw busy(`${DAY_NAMES[Number(weekday)]}, ${clock(otherStart)} às ${clock(otherStart + otherLength)}`, names.get(String(other?.student)));
+		}
+	}
+}
+
 // ---- operations ----
 
 async function list(c: Collection, owner: string, from: unknown): Promise<Row[]> {
@@ -241,6 +319,8 @@ async function list(c: Collection, owner: string, from: unknown): Promise<Row[]>
 async function create(c: Collection, owner: string, data: unknown) {
 	const db = await getDb();
 	const values = await prepare(db, c, owner, data, true);
+	if (c.table === 'classes') await assertClassFree(db, owner, values, null);
+	if (c.table === 'class_sessions') await assertMakeupFree(db, owner, values, null);
 	const now = nowStamp();
 	const row: Record<string, Param> = { id: newId(), owner, ...values, created: now, updated: now };
 	const columns = Object.keys(row);
@@ -257,8 +337,16 @@ async function create(c: Collection, owner: string, data: unknown) {
 
 async function update(c: Collection, owner: string, id: unknown, data: unknown) {
 	const db = await getDb();
-	if (!(await findOwned(db, c.table, id, owner))) throw apiError(404, 'Registro não encontrado.');
+	const existing = await findOwned(db, c.table, id, owner);
+	if (!existing) throw apiError(404, 'Registro não encontrado.');
 	const values = { ...(await prepare(db, c, owner, data, false)), updated: nowStamp() };
+	// Only re-check when the time itself changed, so editing a note never trips over an old overlap.
+	if (c.table === 'classes' && ['weekday', 'start_time', 'duration_minutes'].some((k) => k in values)) {
+		await assertClassFree(db, owner, { ...existing, ...values } as Record<string, Param>, existing.id as string);
+	}
+	if (c.table === 'class_sessions' && ['makeup_date', 'makeup_time'].some((k) => k in values)) {
+		await assertMakeupFree(db, owner, { ...existing, ...values }, existing.id as string);
+	}
 	const columns = Object.keys(values);
 	await db
 		.run(`UPDATE \`${c.table}\` SET ${columns.map((k) => `\`${k}\` = ?`).join(', ')} WHERE \`id\` = ? AND \`owner\` = ?`, [

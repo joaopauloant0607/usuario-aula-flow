@@ -12,8 +12,11 @@ import {
 	CalendarClock,
 	UserX,
 	Undo2,
+	LayoutGrid,
+	List,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
+import { ApiError } from '@/lib/session';
 import {
 	listClasses,
 	createClass,
@@ -138,8 +141,8 @@ export function Schedule() {
 			else await createClass(user!.id, data);
 			setShowForm(false);
 			await load();
-		} catch {
-			setErr('Não foi possível salvar. Tente novamente.');
+		} catch (error) {
+			setErr(error instanceof ApiError && error.status === 400 ? error.message : 'Não foi possível salvar. Tente novamente.');
 		} finally {
 			setSaving(false);
 		}
@@ -429,6 +432,88 @@ function WaButton({ link, title }: { link: string | null; title: string }) {
 	);
 }
 
+const HOUR_PX = 52;
+const toMinutes = (time: string) => {
+	const [h, m] = (time || '0:0').split(':').map(Number);
+	return (h || 0) * 60 + (m || 0);
+};
+
+/** The week as a grid: one column per day, time on the vertical axis, so free slots are visible at a glance. */
+function WeekGrid({
+	monday,
+	occurrences,
+	now,
+	onEdit,
+}: {
+	monday: Date;
+	occurrences: Occurrence[];
+	now: Date;
+	onEdit: (c: ClassItem) => void;
+}) {
+	const starts = occurrences.map((o) => toMinutes(o.cls.start_time));
+	const ends = occurrences.map((o) => toMinutes(o.cls.start_time) + (o.cls.duration_minutes || 60));
+	const first = Math.min(7, Math.floor(Math.min(...starts) / 60));
+	const last = Math.min(24, Math.max(20, Math.ceil(Math.max(...ends) / 60)));
+	const hours = Array.from({ length: last - first }, (_, i) => first + i);
+	const week = Array.from({ length: 7 }, (_, i) => addDays(monday, i));
+	const todayIso = isoDate(new Date());
+
+	return (
+		<div className="panel week-grid-panel">
+			<div className="week-grid" style={{ ['--hour' as string]: HOUR_PX + 'px' }}>
+				<div className="wg-corner" />
+				{week.map((d) => (
+					<div className={'wg-head' + (isoDate(d) === todayIso ? ' today' : '')} key={isoDate(d)}>
+						<b>{WEEKDAYS_SHORT[d.getDay()]}</b>
+						<span>{shortDay(isoDate(d))}</span>
+					</div>
+				))}
+				<div className="wg-hours">
+					{hours.map((h) => (
+						<div key={h} style={{ height: HOUR_PX }}>
+							{String(h).padStart(2, '0')}:00
+						</div>
+					))}
+				</div>
+				{week.map((d) => {
+					const date = isoDate(d);
+					return (
+						<div className={'wg-col' + (date === todayIso ? ' today' : '')} key={date} style={{ height: hours.length * HOUR_PX }}>
+							{occurrences
+								.filter((o) => o.date === date)
+								.map((o) => {
+									const status = o.session?.status || (o.ends < now ? 'makeup' : 'waiting');
+									const start = toMinutes(o.cls.start_time);
+									const length = o.cls.duration_minutes || 60;
+									return (
+										<button
+											type="button"
+											key={o.cls.id + date}
+											className={'wg-block ' + status}
+											style={{ top: ((start - first * 60) / 60) * HOUR_PX, height: Math.max(22, (length / 60) * HOUR_PX - 2) }}
+											onClick={() => onEdit(o.cls)}
+											title={`${o.cls.expand?.student?.name || 'Aluno'} · ${o.cls.start_time} (${length} min) · ${STATUS_BADGE[status].label} · clique para editar`}
+										>
+											<b>{o.cls.start_time}</b>
+											<span>{firstName(o.cls.expand?.student) || 'Aluno'}</span>
+											{o.cls.subject && length >= 50 && <small>{o.cls.subject}</small>}
+										</button>
+									);
+								})}
+						</div>
+					);
+				})}
+			</div>
+			<div className="wg-legend">
+				<span><i className="waiting" /> Aguardando</span>
+				<span><i className="confirmed" /> Confirmada</span>
+				<span><i className="makeup" /> A repor</span>
+				<span><i className="done" /> Reposta</span>
+			</div>
+		</div>
+	);
+}
+
 function Attendance({
 	version,
 	onEdit,
@@ -447,6 +532,18 @@ function Attendance({
 	const [scheduling, setScheduling] = useState<ClassSession | null>(null);
 	const [mk, setMk] = useState({ date: '', time: '' });
 	const [errDetail, setErrDetail] = useState('');
+	const [view, setViewState] = useState<'grid' | 'list'>('grid');
+	useEffect(() => {
+		try {
+			if (localStorage.getItem('agenda-view') === 'list') setViewState('list');
+		} catch { /* storage unavailable */ }
+	}, []);
+	const setView = (next: 'grid' | 'list') => {
+		setViewState(next);
+		try {
+			localStorage.setItem('agenda-view', next);
+		} catch { /* storage unavailable */ }
+	};
 
 	const thisMonday = weekStart(new Date());
 	const monday = addDays(thisMonday, offset * 7);
@@ -488,8 +585,8 @@ function Attendance({
 		try {
 			await fn();
 			await load();
-		} catch {
-			alert('Não foi possível salvar. Tente novamente.');
+		} catch (error) {
+			alert(error instanceof ApiError && error.status === 400 ? error.message : 'Não foi possível salvar. Tente novamente.');
 		} finally {
 			setBusy('');
 		}
@@ -679,6 +776,14 @@ function Attendance({
 					>
 						<ChevronRight size={16} />
 					</button>
+					<div className="view-toggle" role="group" aria-label="Forma de exibir a semana">
+						<button type="button" className={view === 'grid' ? 'on' : ''} aria-pressed={view === 'grid'} onClick={() => setView('grid')} title="Ver em grade">
+							<LayoutGrid size={14} /> Grade
+						</button>
+						<button type="button" className={view === 'list' ? 'on' : ''} aria-pressed={view === 'list'} onClick={() => setView('list')} title="Ver em lista">
+							<List size={14} /> Lista
+						</button>
+					</div>
 				</div>
 			</div>
 
@@ -688,7 +793,11 @@ function Attendance({
 				</div>
 			)}
 
-			{days.map((d) => (
+			{view === 'grid' && days.length > 0 && (
+				<WeekGrid monday={monday} occurrences={occ} now={now} onEdit={onEdit} />
+			)}
+
+			{view === 'list' && days.map((d) => (
 				<div className="panel" key={d.date}>
 					<div className="panel-head">
 						<h2>
